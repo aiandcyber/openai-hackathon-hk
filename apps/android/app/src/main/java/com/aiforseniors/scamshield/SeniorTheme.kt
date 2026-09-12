@@ -8,71 +8,57 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-val BrandNavy = Color(0xFF0F2C4C)
-val BrandTeal = Color(0xFF0E7490)
-val BrandBg = Color(0xFFF4F7FB)
+/** Mock-aligned calm green palette for senior home */
+val BrandInk = Color(0xFF132033)
+val BrandMuted = Color(0xFF6B7280)
+val BrandBg = Color(0xFFEEF1F4)
 val BrandCard = Color(0xFFFFFFFF)
-val BrandInk = Color(0xFF0B1220)
-val BrandMuted = Color(0xFF475569)
-val BrandWarn = Color(0xFF9F1239)
-val BrandOk = Color(0xFF166534)
+val BrandGreen = Color(0xFF1F6B4A)
+val BrandGreenSoft = Color(0xFFE7F3EC)
+val BrandMint = Color(0xFFD8EEE3)
+val BrandWarn = Color(0xFFDC2626)
+val BrandNavy = BrandInk
+val BrandTeal = BrandGreen
+val BrandOk = BrandGreen
 
 private val SeniorTypography = Typography(
-    displayLarge = TextStyle(
-        fontSize = 44.sp,
-        fontWeight = FontWeight.Bold,
-        lineHeight = 50.sp,
-        color = BrandNavy,
-    ),
     headlineLarge = TextStyle(
-        fontSize = 36.sp,
+        fontSize = 34.sp,
         fontWeight = FontWeight.Bold,
-        lineHeight = 42.sp,
-        color = BrandNavy,
-    ),
-    headlineMedium = TextStyle(
-        fontSize = 30.sp,
-        fontWeight = FontWeight.SemiBold,
-        lineHeight = 36.sp,
+        lineHeight = 40.sp,
         color = BrandInk,
     ),
     titleLarge = TextStyle(
-        fontSize = 26.sp,
-        fontWeight = FontWeight.SemiBold,
-        lineHeight = 32.sp,
+        fontSize = 24.sp,
+        fontWeight = FontWeight.Bold,
+        lineHeight = 30.sp,
         color = BrandInk,
     ),
     bodyLarge = TextStyle(
-        fontSize = 24.sp,
-        fontWeight = FontWeight.Normal,
-        lineHeight = 32.sp,
-        color = BrandInk,
+        fontSize = 18.sp,
+        lineHeight = 24.sp,
+        color = BrandMuted,
     ),
     bodyMedium = TextStyle(
-        fontSize = 22.sp,
-        lineHeight = 30.sp,
+        fontSize = 16.sp,
+        lineHeight = 22.sp,
         color = BrandMuted,
     ),
     labelLarge = TextStyle(
-        fontSize = 24.sp,
+        fontSize = 20.sp,
         fontWeight = FontWeight.SemiBold,
-        lineHeight = 30.sp,
     ),
 )
-
-val SeniorButtonHeight = 76.dp
 
 @Composable
 fun SeniorTheme(content: @Composable () -> Unit) {
     MaterialTheme(
         colorScheme = lightColorScheme(
-            primary = BrandTeal,
+            primary = BrandGreen,
             onPrimary = Color.White,
-            secondary = BrandNavy,
-            onSecondary = Color.White,
+            secondary = BrandInk,
             background = BrandBg,
             onBackground = BrandInk,
             surface = BrandCard,
@@ -86,18 +72,18 @@ fun SeniorTheme(content: @Composable () -> Unit) {
 
 @Composable
 fun seniorPrimaryButtonColors() = ButtonDefaults.buttonColors(
-    containerColor = BrandTeal,
+    containerColor = BrandGreen,
     contentColor = Color.White,
 )
 
 @Composable
 fun seniorSecondaryButtonColors() = ButtonDefaults.buttonColors(
-    containerColor = BrandNavy,
+    containerColor = BrandInk,
     contentColor = Color.White,
 )
 
 @Composable
 fun seniorWarnButtonColors() = ButtonDefaults.buttonColors(
-    containerColor = Color.White,
-    contentColor = BrandWarn,
+    containerColor = BrandWarn,
+    contentColor = Color.White,
 )

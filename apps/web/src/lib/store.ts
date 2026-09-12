@@ -1,14 +1,23 @@
 import type { Vip } from "./types";
 
-const g = globalThis as unknown as { __vips?: Vip[]; __alerts?: unknown[] };
+const SEED_VERSION = 2;
+
+const DEFAULT_VIPS: Vip[] = [
+  { id: "martin", name: "Martin", phone: "+85253241503" },
+  { id: "amir", name: "Amir", phone: "97915547" },
+  { id: "tim", name: "Tim", phone: "+85295180005" },
+];
+
+const g = globalThis as unknown as {
+  __vips?: Vip[];
+  __alerts?: unknown[];
+  __vipSeedVersion?: number;
+};
 
 function store() {
-  if (!g.__vips) {
-    g.__vips = [
-      { id: "martin", name: "Martin", phone: "+85253241503" },
-      { id: "amir", name: "Amir", phone: "97915547" },
-      { id: "tim", name: "Tim", phone: "+85295180005" },
-    ];
+  if (g.__vipSeedVersion !== SEED_VERSION || !g.__vips) {
+    g.__vips = [...DEFAULT_VIPS];
+    g.__vipSeedVersion = SEED_VERSION;
   }
   if (!g.__alerts) g.__alerts = [];
   return g;
