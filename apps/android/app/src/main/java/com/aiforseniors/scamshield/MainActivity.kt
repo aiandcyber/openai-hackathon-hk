@@ -31,7 +31,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -101,22 +100,26 @@ class MainActivity : ComponentActivity() {
                             },
                         )
 
-                        StatusCard(Modifier = Modifier.weight(1f))
+                        Box(Modifier.weight(1f).fillMaxWidth()) {
+                            StatusCard()
+                        }
 
-                        MessageGuardianCard(on = true, modifier = Modifier.weight(1f))
+                        Box(Modifier.weight(1f).fillMaxWidth()) {
+                            MessageGuardianCard(on = true)
+                        }
 
-                        if (activeCall == null) {
-                            CallSomeoneCard(
-                                listening = listening,
-                                names = vips.joinToString(" · ") { it.name },
-                                modifier = Modifier.weight(1f),
-                            )
-                        } else {
-                            CallingCard(
-                                vip = activeCall!!,
-                                onEnd = { endCall() },
-                                modifier = Modifier.weight(1f),
-                            )
+                        Box(Modifier.weight(1f).fillMaxWidth()) {
+                            if (activeCall == null) {
+                                CallSomeoneCard(
+                                    listening = listening,
+                                    names = vips.joinToString(" · ") { it.name },
+                                )
+                            } else {
+                                CallingCard(
+                                    vip = activeCall!!,
+                                    onEnd = { endCall() },
+                                )
+                            }
                         }
                     }
                 }
@@ -385,8 +388,8 @@ private fun HeaderRow(onSettings: () -> Unit) {
 }
 
 @androidx.compose.runtime.Composable
-private fun StatusCard(modifier: Modifier = Modifier) {
-    HomeCard(modifier = modifier) {
+private fun StatusCard() {
+    HomeCard {
         Row(
             Modifier.fillMaxSize(),
             verticalAlignment = Alignment.CenterVertically,
@@ -408,8 +411,8 @@ private fun StatusCard(modifier: Modifier = Modifier) {
 }
 
 @androidx.compose.runtime.Composable
-private fun MessageGuardianCard(on: Boolean, modifier: Modifier = Modifier) {
-    HomeCard(modifier = modifier) {
+private fun MessageGuardianCard(on: Boolean) {
+    HomeCard {
         Row(
             Modifier.fillMaxSize(),
             verticalAlignment = Alignment.CenterVertically,
@@ -442,9 +445,8 @@ private fun MessageGuardianCard(on: Boolean, modifier: Modifier = Modifier) {
 private fun CallSomeoneCard(
     listening: Boolean,
     names: String,
-    modifier: Modifier = Modifier,
 ) {
-    HomeCard(modifier = modifier) {
+    HomeCard {
         Row(
             Modifier.fillMaxSize(),
             verticalAlignment = Alignment.CenterVertically,
@@ -481,10 +483,9 @@ private fun CallSomeoneCard(
 private fun CallingCard(
     vip: Vip,
     onEnd: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     HomeCard(
-        modifier = modifier.border(2.dp, BrandGreen, RoundedCornerShape(22.dp)),
+        modifier = Modifier.border(2.dp, BrandGreen, RoundedCornerShape(22.dp)),
     ) {
         Column(
             Modifier.fillMaxSize(),
@@ -546,8 +547,7 @@ private fun HomeCard(
 ) {
     Box(
         modifier
-            .fillMaxWidth()
-            .fillMaxHeight()
+            .fillMaxSize()
             .clip(RoundedCornerShape(22.dp))
             .background(BrandCard)
             .padding(horizontal = 20.dp, vertical = 18.dp),
