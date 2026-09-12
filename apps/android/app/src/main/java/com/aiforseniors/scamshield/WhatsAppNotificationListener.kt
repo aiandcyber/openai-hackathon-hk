@@ -146,18 +146,6 @@ class WhatsAppNotificationListener : NotificationListenerService() {
             .orEmpty()
         if (fromCompat.isNotEmpty()) return fromCompat
 
-        @Suppress("NewApi")
-        val fromPlatform = runCatching {
-            Notification.MessagingStyle.extractMessagingStyleFromNotification(n)
-                ?.messages
-                ?.lastOrNull()
-                ?.text
-                ?.toString()
-                ?.trim()
-                .orEmpty()
-        }.getOrDefault("")
-        if (fromPlatform.isNotEmpty()) return fromPlatform
-
         val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim().orEmpty()
         if (text.isNotEmpty()) return text
 
