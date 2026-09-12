@@ -136,12 +136,27 @@ class WhatsAppNotificationListener : NotificationListenerService() {
     private fun extractBody(n: Notification): String {
         val extras = n.extras
         // Prefer MessagingStyle last message (common for WhatsApp)
-        val style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(n)
-            ?: runCatching {
-                Notification.MessagingStyle.extractMessagingStyleFromNotification(n)
-            }.getOrNull()
-        val fromStyle = style?.messages?.lastOrNull()?.text?.toString()?.trim().orEmpty()
-        if (fromStyle.isNotEmpty()) return fromStyle
+        val fromCompat = NotificationCompat.MessagingStyle
+            .extractMessagingStyleFromNotification(n)
+            ?.messages
+            ?.lastOrNull()
+            ?.text
+            ?.toString()
+            ?.trim()
+            .orEmpty()
+        if (fromCompat.isNotEmpty()) return fromCompat
+
+        @Suppress("NewApi")
+        val fromPlatform = runCatching {
+            Notification.MessagingStyle.extractMessagingStyleFromNotification(n)
+                ?.messages
+                ?.lastOrNull()
+                ?.text
+                ?.toString()
+                ?.trim()
+                .orEmpty()
+        }.getOrDefault("")
+        if (fromPlatform.isNotEmpty()) return fromPlatform
 
         val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()?.trim().orEmpty()
         if (text.isNotEmpty()) return text
