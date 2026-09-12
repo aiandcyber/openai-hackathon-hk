@@ -32,11 +32,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
@@ -57,14 +60,19 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     private var listening by mutableStateOf(false)
     private var activeCall by mutableStateOf<Vip?>(null)
+    private var todayChecks by mutableStateOf(0)
+    private var todayBlocked by mutableStateOf(0)
+    private var recentEvents by mutableStateOf<List<ProtectionEvent>>(emptyList())
     private var speech: SpeechRecognizer? = null
     private val vips: List<Vip> = DefaultVips.list
     private val listenHandler = Handler(Looper.getMainLooper())
@@ -82,6 +90,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         requestRuntimePermissionsIfNeeded()
+        refreshProtectionSummary()
 
         setContent {
             SeniorTheme {
@@ -91,7 +100,8 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .statusBarsPadding()
                             .navigationBarsPadding()
-                            .padding(horizontal = 20.dp, vertical = 12.dp),
+                            .padding(horizontal = 20.dp, vertical = 12.dp)
+                            .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(14.dp),
                     ) {
                         HeaderRow(
@@ -105,10 +115,7 @@ class MainActivity : ComponentActivity() {
                         MessageGuardianCard(on = true)
 
                         if (activeCall == null) {
-                            CallSomeoneCard(
-                                listening = listening,
-                                names = vips.joinToString(" · ") { it.name },
-                            )
+                            CallSomeoneCard(listening = listening)
                         } else {
                             CallingCard(
                                 vip = activeCall!!,
@@ -116,15 +123,27 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        Spacer(Modifier.weight(1f))
+                        TodayForYouCard(
+                            checks = todayChecks,
+                            blocked = todayBlocked,
+                            events = recentEvents,
+                        )
                     }
                 }
             }
         }
     }
 
+    private fun refreshProtectionSummary() {
+        val (checks, blocked) = ProtectionLog.todayCounts(this)
+        todayChecks = checks
+        todayBlocked = blocked
+        recentEvents = ProtectionLog.recent(this, limit = 3)
+    }
+
     override fun onResume() {
         super.onResume()
+        refreshProtectionSummary()
         wantContinuousListen = activeCall == null
         if (wantContinuousListen) scheduleListen(delayMs = 400)
     }
@@ -200,12 +219,11 @@ class MainActivity : ComponentActivity() {
                 }
 
                 override fun onResults(results: Bundle?) {
-                    val heard = results
+                    val heardList = results
                         ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                        ?.firstOrNull()
                         .orEmpty()
-                    Log.d(TAG, "heard: $heard")
-                    val matched = handleVoiceCommand(heard)
+                    Log.d(TAG, "heard: $heardList")
+                    val matched = heardList.any { handleVoiceCommand(it) }
                     if (!matched && wantContinuousListen && activeCall == null) {
                         scheduleListen(delayMs = 400)
                     }
@@ -244,17 +262,14 @@ class MainActivity : ComponentActivity() {
 
     /** @return true if a call was started */
     private fun handleVoiceCommand(heard: String): Boolean {
-        val normalized = heard.lowercase().trim()
-        // Must include "call" (or phone/dial) — ignore other chatter while always listening.
-        val callMatch = Regex("""\b(?:call|phone|dial)\s+(.+)$""").find(normalized) ?: return false
+        val normalized = heard.lowercase().replace(Regex("[^a-z0-9\\s+]"), " ").replace(Regex("\\s+"), " ").trim()
+        // "call Martin", "calling Martin", "phone Martin", "dial Martin"
+        val callMatch = Regex("""\b(?:call(?:ing)?|phone|dial(?:ling|ing)?|ring)\s+(?:to\s+)?(.+)$""")
+            .find(normalized) ?: return false
         val namePart = callMatch.groupValues.getOrNull(1)?.trim().orEmpty()
         if (namePart.isBlank()) return false
 
-        val vip = vips.firstOrNull { vip ->
-            val n = vip.name.lowercase()
-            namePart.contains(n) || n.contains(namePart) ||
-                namePart.split(Regex("\\s+")).any { token -> n.contains(token) && token.length > 2 }
-        }
+        val vip = matchVip(namePart)
         if (vip == null) {
             Toast.makeText(this, "No match for $namePart", Toast.LENGTH_SHORT).show()
             return false
@@ -263,20 +278,55 @@ class MainActivity : ComponentActivity() {
         return true
     }
 
+    private fun matchVip(spoken: String): Vip? {
+        val cleaned = spoken.lowercase().trim()
+        val aliases = mapOf(
+            "martin" to listOf("martin", "martyn", "martine", "marten"),
+            "amir" to listOf("amir", "ameer", "ameir", "emir"),
+            "tim" to listOf("tim", "timothy"),
+        )
+        return vips.firstOrNull { vip ->
+            val keys = aliases[vip.id] ?: listOf(vip.name.lowercase())
+            keys.any { key ->
+                cleaned == key || cleaned.contains(key) ||
+                    cleaned.split(" ").any { token -> token == key }
+            }
+        }
+    }
+
     private fun placeCall(vip: Vip) {
         val cleaned = vip.phone.filter { it.isDigit() || it == '+' }
-        if (cleaned.isEmpty()) return
-        wantContinuousListen = false
-        stopListening()
-        activeCall = vip
-        val uri = Uri.parse("tel:$cleaned")
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
-            startActivity(Intent(Intent.ACTION_DIAL, uri))
+        if (cleaned.isEmpty()) {
+            Toast.makeText(this, "No number for ${vip.name}", Toast.LENGTH_LONG).show()
             return
         }
-        startActivity(Intent(Intent.ACTION_CALL, uri))
+        wantContinuousListen = false
+        stopListening()
+        val uri = Uri.parse("tel:$cleaned")
+        val dial = Intent(Intent.ACTION_DIAL, uri)
+        try {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE)
+                == PackageManager.PERMISSION_GRANTED
+            ) {
+                try {
+                    startActivity(Intent(Intent.ACTION_CALL, uri))
+                    activeCall = vip
+                    return
+                } catch (e: Exception) {
+                    Log.w(TAG, "ACTION_CALL failed, opening dialer", e)
+                }
+            } else {
+                requestRuntimePermissionsIfNeeded()
+            }
+            startActivity(dial)
+            activeCall = vip
+        } catch (e: Exception) {
+            Log.e(TAG, "cannot start call", e)
+            Toast.makeText(this, "Could not call ${vip.name}. Check Phone permission.", Toast.LENGTH_LONG).show()
+            activeCall = null
+            wantContinuousListen = true
+            scheduleListen(delayMs = 500)
+        }
     }
 
     private fun endCall() {
@@ -394,35 +444,132 @@ private fun MessageGuardianCard(on: Boolean) {
 }
 
 @androidx.compose.runtime.Composable
-private fun CallSomeoneCard(
-    listening: Boolean,
-    names: String,
-) {
+private fun CallSomeoneCard(listening: Boolean) {
     HomeCard {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            CircleIcon(Icons.Filled.Mic, filled = true)
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(
-                    text = if (listening) "Listening…" else "Call Someone",
-                    fontSize = 26.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = BrandInk,
-                )
-                Text(
-                    text = "Always on — say “Call” then a name",
-                    fontSize = 18.sp,
-                    color = BrandMuted,
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    text = "Family: $names",
-                    fontSize = 16.sp,
-                    color = BrandMuted,
-                )
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CircleIcon(Icons.Filled.Mic, filled = true)
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        text = if (listening) "Listening…" else "Say a name to call",
+                        fontSize = 26.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BrandInk,
+                    )
+                    Text(
+                        text = "Try “Call Martin” anytime",
+                        fontSize = 18.sp,
+                        color = BrandMuted,
+                    )
+                }
+            }
+            NewsLine(tag = "HKMA", title = "Banks never ask for your OTP on WhatsApp.")
+            NewsLine(tag = "Today", title = "WhatsApp from Martin looked safe.")
+            NewsLine(tag = "Hong Kong", title = "Sunny, 31°. A good day for a short walk.")
+        }
+    }
+}
+
+@androidx.compose.runtime.Composable
+private fun NewsLine(tag: String, title: String) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(BrandGreenSoft)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+    ) {
+        Text(
+            text = tag,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = BrandGreen,
+        )
+        Spacer(Modifier.height(4.dp))
+        Text(
+            text = title,
+            fontSize = 18.sp,
+            color = BrandInk,
+            lineHeight = 24.sp,
+        )
+    }
+}
+
+@androidx.compose.runtime.Composable
+private fun TodayForYouCard(
+    checks: Int,
+    blocked: Int,
+    events: List<ProtectionEvent>,
+) {
+    val timeFmt = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)
+    HomeCard {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                SoftSquareIcon(Icons.Filled.History)
+                Spacer(Modifier.width(14.dp))
+                Column {
+                    Text("Today for you", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = BrandInk)
+                    Text(
+                        text = when {
+                            checks == 0 -> "No messages checked yet today"
+                            blocked == 0 -> "$checks message${if (checks == 1) "" else "s"} checked · all looked safe"
+                            else -> "$checks checked · $blocked warning${if (blocked == 1) "" else "s"}"
+                        },
+                        fontSize = 18.sp,
+                        color = BrandMuted,
+                    )
+                }
+            }
+
+            if (events.isEmpty()) {
+                TipLine("Never share one-time codes from WhatsApp or SMS.")
+                TipLine("If someone rushes you for money, pause and call family.")
+                TipLine("Say “Call Martin”, “Call Amir”, or “Call Tim” anytime.")
+            } else {
+                events.forEach { event ->
+                    val whenText = Instant.ofEpochMilli(event.atMs)
+                        .atZone(ZoneId.systemDefault())
+                        .toLocalTime()
+                        .format(timeFmt)
+                    val label = if (event.isScam) "Warning" else "Safe"
+                    val color = if (event.isScam) BrandWarn else BrandGreen
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(BrandGreenSoft)
+                            .padding(horizontal = 14.dp, vertical = 12.dp),
+                    ) {
+                        Text(
+                            text = "$label · $whenText",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = color,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = event.summary.removePrefix("Warning: ").removePrefix("Checked OK: "),
+                            fontSize = 17.sp,
+                            color = BrandInk,
+                            lineHeight = 22.sp,
+                        )
+                    }
+                }
             }
         }
     }
+}
+
+@androidx.compose.runtime.Composable
+private fun TipLine(text: String) {
+    Text(
+        text = "• $text",
+        fontSize = 18.sp,
+        color = BrandInk,
+        lineHeight = 24.sp,
+        modifier = Modifier.padding(start = 4.dp),
+    )
 }
 
 @androidx.compose.runtime.Composable

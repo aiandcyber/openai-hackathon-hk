@@ -9,19 +9,10 @@ export async function proxy(request: NextRequest) {
   }
 
   const auth0 = getAuth0();
-  const authRes = await auth0.middleware(request);
-
-  const { pathname } = request.nextUrl;
-  if (pathname.startsWith("/caregiver")) {
-    const session = await auth0.getSession(request);
-    if (!session) {
-      const login = new URL("/auth/login", request.nextUrl.origin);
-      login.searchParams.set("returnTo", "/caregiver");
-      return NextResponse.redirect(login);
-    }
-  }
-
-  return authRes;
+  // Handle /auth/login, /auth/logout, /auth/callback.
+  // Do not hard-redirect /caregiver: the page has its own Log in button,
+  // and a forced login redirect made localhost look like it "failed to load".
+  return auth0.middleware(request);
 }
 
 export const config = {

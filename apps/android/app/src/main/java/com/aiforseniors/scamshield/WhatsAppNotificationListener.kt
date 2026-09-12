@@ -7,6 +7,7 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import android.widget.Toast
+import androidx.core.app.NotificationCompat
 import kotlin.concurrent.thread
 
 /**
@@ -64,6 +65,16 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                 Log.i(TAG, "POST classify → ${BuildConfig.API_BASE_URL} payload=${payload.take(80)}")
                 val result = app.api.classifyScam(payload, source = "whatsapp")
                 Log.i(TAG, "classify result isScam=${result.isScam} mode=${result.mode}")
+                val short = payload.replace('\n', ' ').take(80)
+                ProtectionLog.record(
+                    applicationContext,
+                    isScam = result.isScam,
+                    summary = if (result.isScam) {
+                        "Warning: $short"
+                    } else {
+                        "Checked OK: $short"
+                    },
+                )
                 if (result.isScam) {
                     val intent = Intent(this, WarnActivity::class.java).apply {
                         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
@@ -80,12 +91,11 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "classify failed (check API_BASE_URL / server)", e)
-                // Surface failure so demos aren't silent
                 try {
                     android.os.Handler(mainLooper).post {
                         Toast.makeText(
                             applicationContext,
-                            "Scam check failed — server unreachable",
+                            "Scam check failed — cannot reach ${BuildConfig.API_BASE_URL}\nTurn off phone VPN. Same Wi-Fi as laptop.",
                             Toast.LENGTH_LONG,
                         ).show()
                     }
@@ -106,7 +116,7 @@ class WhatsAppNotificationListener : NotificationListenerService() {
     private fun extractBody(n: Notification): String {
         val extras = n.extras
         // Prefer MessagingStyle last message (common for WhatsApp)
-        val style = Notification.MessagingStyle.extractMessagingStyleFromNotification(n)
+        val style = NotificationCompat.MessagingStyle.extractMessagingStyleFromNotification(n)
         val fromStyle = style?.messages?.lastOrNull()?.text?.toString()?.trim().orEmpty()
         if (fromStyle.isNotEmpty()) return fromStyle
 

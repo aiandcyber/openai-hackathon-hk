@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { listAlerts } from "@/lib/store";
-import { requireCaregiverSession } from "@/lib/require-auth";
 
 export async function GET() {
-  const { error } = await requireCaregiverSession();
-  if (error) return error;
+  // Readable without login so the demo console shows phone-detected alerts.
   return NextResponse.json({ alerts: listAlerts() });
 }

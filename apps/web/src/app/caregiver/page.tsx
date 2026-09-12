@@ -28,12 +28,15 @@ export default function CaregiverPage() {
   const [lastClassify, setLastClassify] = useState<Alert | null>(null);
 
   async function refresh() {
-    const [v, a] = await Promise.all([
-      fetch("/api/vips").then((r) => r.json()),
-      fetch("/api/alerts").then((r) => r.json()),
-    ]);
-    setVips(v.vips ?? []);
-    setAlerts(a.alerts ?? []);
+    try {
+      const [vRes, aRes] = await Promise.all([fetch("/api/vips"), fetch("/api/alerts")]);
+      const v = (await vRes.json()) as { vips?: Vip[] };
+      const a = (await aRes.json()) as { alerts?: Alert[] };
+      setVips(Array.isArray(v.vips) ? v.vips : []);
+      setAlerts(Array.isArray(a.alerts) ? a.alerts : []);
+    } catch (err) {
+      console.error("caregiver refresh failed", err);
+    }
   }
 
   useEffect(() => {

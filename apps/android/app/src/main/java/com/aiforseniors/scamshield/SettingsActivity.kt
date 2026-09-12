@@ -5,6 +5,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
 import android.text.TextUtils
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -20,9 +21,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Cloud
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.PhonelinkLock
 import androidx.compose.material3.Button
@@ -62,7 +66,8 @@ class SettingsActivity : ComponentActivity() {
                             .fillMaxSize()
                             .statusBarsPadding()
                             .navigationBarsPadding()
-                            .padding(20.dp),
+                            .padding(20.dp)
+                            .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(18.dp),
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -122,6 +127,17 @@ class SettingsActivity : ComponentActivity() {
                                 )
                             },
                         )
+                        Text(
+                            "API: ${BuildConfig.API_BASE_URL}",
+                            fontSize = 16.sp,
+                            color = BrandMuted,
+                        )
+                        SettingsAction(
+                            icon = Icons.Filled.Cloud,
+                            label = "Test laptop server",
+                            detail = "Turn off phone VPN first — same Wi-Fi as laptop",
+                            onClick = { testServer() },
+                        )
                     }
                 }
             }
@@ -131,6 +147,31 @@ class SettingsActivity : ComponentActivity() {
     override fun onResume() {
         super.onResume()
         listenerOn = isNotificationListenerEnabled()
+    }
+
+    private fun testServer() {
+        Toast.makeText(this, "Testing ${BuildConfig.API_BASE_URL} …", Toast.LENGTH_SHORT).show()
+        kotlin.concurrent.thread {
+            try {
+                val app = application as ScamShieldApp
+                val vips = app.api.listVips()
+                runOnUiThread {
+                    Toast.makeText(
+                        this,
+                        "Server OK — ${vips.size} contacts",
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    Toast.makeText(
+                        this,
+                        "Server fail. Turn off phone VPN.\n${e.message ?: e.javaClass.simpleName}",
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+            }
+        }
     }
 
     private fun isNotificationListenerEnabled(): Boolean {
