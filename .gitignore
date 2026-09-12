@@ -7,3 +7,7 @@ node_modules/
 keystore.properties
 local.properties
 .DS_Store
+.gradle/
+**/build/
+*.iml
+.idea/

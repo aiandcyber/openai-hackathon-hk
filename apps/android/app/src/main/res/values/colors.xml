@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="shield_bg">#FFF7ED</color>
+    <color name="shield_warn">#B91C1C</color>
+    <color name="shield_ink">#1C1917</color>
+    <color name="shield_accent">#C2410C</color>
+</resources>

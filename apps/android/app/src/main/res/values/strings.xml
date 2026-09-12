@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Scam Shield</string>
+    <string name="notification_access_needed">Enable Notification access for WhatsApp scam alerts</string>
+    <string name="call_vip_hint">Say: Call Mom</string>
+</resources>

@@ -63,12 +63,22 @@ export default function CaregiverPage() {
   return (
     <CopilotKit runtimeUrl="/api/copilotkit">
       <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 p-6">
-        <header>
-          <h1 className="text-2xl font-semibold">Caregiver console</h1>
-          <p className="text-sm text-zinc-600">
-            Auth0 login will wrap this page next. CopilotKit agent UI is required.
-            Exa evidence appears after classify when EXA_API_KEY is set.
-          </p>
+        <header className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold">Caregiver console</h1>
+            <p className="text-sm text-zinc-600">
+              CopilotKit agent UI + Exa evidence. Auth0 protects this page when
+              AUTH0_DOMAIN / CLIENT_ID / CLIENT_SECRET are set.
+            </p>
+          </div>
+          <div className="flex gap-2 text-sm">
+            <a className="rounded border px-3 py-1.5" href="/auth/login?returnTo=/caregiver">
+              Log in
+            </a>
+            <a className="rounded border px-3 py-1.5" href="/auth/logout">
+              Log out
+            </a>
+          </div>
         </header>
 
         <section className="grid gap-6 md:grid-cols-2">

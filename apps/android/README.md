@@ -1,22 +1,41 @@
-# Android app (Person A)
+# Android — Scam Shield (Person A / Windows Android Studio)
 
-JDK 17+ and Android Studio are required on the machine that builds the APK.
+Package: `com.aiforseniors.scamshield` · Min SDK 26
 
-This environment check (2026-09-12): `java` was not installed in the WSL/dev sandbox, so the Kotlin project was not generated here.
+## Open in Android Studio (Windows)
 
-## Create project
+1. Clone or pull [openai-hackathon-hk](https://github.com/aiandcyber/openai-hackathon-hk)
+2. **File → Open** → `...\openai-hackathon\apps\android` (this folder, not the monorepo root)
+3. Copy `local.properties.example` → `local.properties`
+4. Set `sdk.dir` to your Android SDK path
+5. Set `API_BASE_URL`:
+   - Emulator: `http://10.0.2.2:3000`
+   - USB phone (same Wi‑Fi as PC): `http://YOUR_PC_LAN_IP:3000` (WSL often needs `netsh interface portproxy` or run Next on Windows)
+   - After deploy: `https://YOUR_VERCEL_OR_WORKER_URL`
+6. Sync Gradle → **Run ▶** on the Samsung phone (`R5CX52J1K6T`)
 
-1. Android Studio → New Project → Empty Activity (Kotlin), Min SDK 26
-2. Save/open this folder as the Android module root (or create under here)
-3. Implement:
-   - `NotificationListenerService` for `com.whatsapp`
-   - POST message text to `https://YOUR_VERCEL_URL/api/classify-scam`
-   - Warn UI when `isScam`
-   - Speech → match VIP from `GET /api/vips` → `ACTION_CALL`
+## Features
+
+| Feature | How |
+|---|---|
+| WhatsApp → classify → warn | `WhatsAppNotificationListener` → `POST /api/classify-scam` → `WarnActivity` (+ TTS) |
+| Call VIP | Load `GET /api/vips` → speech “Call [name]” → `ACTION_CALL` |
+| Manual test | Home screen “Test classify” without WhatsApp |
+
+## On-device checklist
+
+1. Settings → **Notification access** → enable **Scam Shield**
+2. Grant **Microphone** + **Phone**
+3. Add VIPs on caregiver web, then **Load VIP list**
+4. Send yourself a scam-like WhatsApp message, or use Test classify
+5. Say **Call [VIP name]**
 
 ## Build APK
 
 ```bash
+cd apps/android
 ./gradlew assembleDebug
-# output: app/build/outputs/apk/debug/app-debug.apk
+# app/build/outputs/apk/debug/app-debug.apk
 ```
+
+WSL note: JDK/Android SDK are expected on **Windows** Android Studio for this hackathon; this tree is source-complete for Studio to build.

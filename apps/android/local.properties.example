@@ -1,0 +1,7 @@
+# Copy to local.properties (gitignored). Do not commit secrets.
+# Emulator → host Next.js: http://10.0.2.2:3000
+# Physical phone on same Wi‑Fi: http://YOUR_PC_LAN_IP:3000  (WSL may need port proxy)
+# After Vercel/Cloudflare: https://YOUR_DEPLOY_URL
+sdk.dir=C\:\\Users\\YOUR_USER\\AppData\\Local\\Android\\Sdk
+API_BASE_URL=http://10.0.2.2:3000
+DEVICE_API_TOKEN=dev-device-token
