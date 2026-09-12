@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">AI For Seniors</string>
-    <string name="notification_access_needed">Turn on notification access so we can protect your WhatsApp messages</string>
+    <string name="notification_listener_label">AI For Seniors — WhatsApp protection</string>
+    <string name="notification_access_needed">Turn on “AI For Seniors — WhatsApp protection” so WhatsApp messages can be checked</string>
     <string name="call_vip_hint">Say: Call Mom</string>
 </resources>

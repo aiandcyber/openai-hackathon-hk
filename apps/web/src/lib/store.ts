@@ -5,8 +5,9 @@ const g = globalThis as unknown as { __vips?: Vip[]; __alerts?: unknown[] };
 function store() {
   if (!g.__vips) {
     g.__vips = [
-      { id: "1", name: "Amma", phone: "+85290000001" },
-      { id: "2", name: "Daughter", phone: "+85290000002" },
+      { id: "martin", name: "Martin", phone: "+85253241503" },
+      { id: "amir", name: "Amir", phone: "97915547" },
+      { id: "tim", name: "Tim", phone: "+85295180005" },
     ];
   }
   if (!g.__alerts) g.__alerts = [];

@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.ScamShield" parent="android:Theme.Material.Light.NoActionBar" />
+    <style name="Theme.ScamShield" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/brand_bg</item>
+        <item name="android:statusBarColor">@color/brand_navy</item>
+        <item name="android:navigationBarColor">@color/brand_bg</item>
+    </style>
     <style name="Theme.ScamShield.Warn" parent="Theme.ScamShield">
         <item name="android:windowFullscreen">true</item>
-        <item name="android:windowBackground">@color/shield_warn</item>
+        <item name="android:windowBackground">@color/brand_warn</item>
+        <item name="android:statusBarColor">@color/brand_warn</item>
     </style>
 </resources>

@@ -5,7 +5,6 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
-import android.provider.Settings
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
@@ -16,23 +15,30 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Security
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -48,29 +54,20 @@ import androidx.core.content.ContextCompat
 import kotlin.concurrent.thread
 
 class MainActivity : ComponentActivity() {
-    private var status by mutableStateOf("Ready")
-    private var vipsText by mutableStateOf("Family contacts not loaded yet")
-    private var apiUrl by mutableStateOf(BuildConfig.API_BASE_URL)
-    private var lastHeard by mutableStateOf("")
+    private var showCheckDialog by mutableStateOf(false)
     private var testText by mutableStateOf(
         "URGENT: Your HSBC account will be locked. Send OTP now.",
     )
     private var speech: SpeechRecognizer? = null
-    private var cachedVips: List<Vip> = emptyList()
+    private val vips: List<Vip> = DefaultVips.list
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
-    ) { granted ->
-        status = if (granted.values.all { it }) {
-            "Permissions are ready"
-        } else {
-            "Please allow Microphone and Phone"
-        }
-    }
+    ) { /* granted silently for senior home */ }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        apiUrl = BuildConfig.API_BASE_URL
+        requestRuntimePermissionsIfNeeded()
 
         setContent {
             SeniorTheme {
@@ -78,137 +75,164 @@ class MainActivity : ComponentActivity() {
                     Column(
                         Modifier
                             .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
-                            .padding(horizontal = 24.dp, vertical = 28.dp),
-                        verticalArrangement = Arrangement.spacedBy(18.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
+                            .padding(horizontal = 20.dp, vertical = 16.dp),
+                        verticalArrangement = Arrangement.SpaceBetween,
                     ) {
-                        Image(
-                            painter = painterResource(id = R.drawable.ic_launcher),
-                            contentDescription = "AI For Seniors",
-                            modifier = Modifier
-                                .size(112.dp)
-                                .clip(RoundedCornerShape(28.dp)),
-                        )
-                        Text(
-                            text = "AI For Seniors",
-                            style = MaterialTheme.typography.displayLarge,
-                            textAlign = TextAlign.Center,
-                        )
-                        Text(
-                            text = "Message safety & family calls",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = BrandMuted,
-                            textAlign = TextAlign.Center,
-                        )
-
-                        StatusCard(status = status, heard = lastHeard)
-
-                        SectionLabel("Setup")
-                        BigActionButton("1. Turn on message protection", onClick = { openNotificationAccess() })
-                        BigActionButton("2. Allow microphone & phone", onClick = { requestRuntimePermissions() })
-                        BigActionButton("3. Load family contacts", onClick = { refreshVips() })
-
-                        Box(
-                            Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(BrandCard)
-                                .padding(20.dp),
+                        // Header
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(vipsText, style = MaterialTheme.typography.bodyLarge)
+                            Image(
+                                painter = painterResource(id = R.drawable.ic_launcher),
+                                contentDescription = null,
+                                modifier = Modifier
+                                    .size(56.dp)
+                                    .clip(RoundedCornerShape(14.dp)),
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    text = "AI For Seniors",
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = BrandNavy,
+                                )
+                                Text(
+                                    text = "Call family · Stay safe",
+                                    fontSize = 18.sp,
+                                    color = BrandMuted,
+                                )
+                            }
+                            IconButton(
+                                onClick = {
+                                    startActivity(Intent(this@MainActivity, SettingsActivity::class.java))
+                                },
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Filled.Settings,
+                                    contentDescription = "Settings",
+                                    tint = BrandNavy,
+                                    modifier = Modifier.size(36.dp),
+                                )
+                            }
                         }
 
-                        SectionLabel("Call family")
-                        BigActionButton(
-                            "4. Say “Call” + name",
-                            onClick = { startCallVipListening() },
-                            primary = false,
-                        )
+                        // Call family — main content
+                        Column(
+                            Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterVertically),
+                        ) {
+                            Text(
+                                text = "Call family",
+                                fontSize = 26.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = BrandInk,
+                            )
+                            vips.forEach { vip ->
+                                IconTextButton(
+                                    icon = Icons.Filled.Call,
+                                    label = "Call ${vip.name}",
+                                    onClick = { placeCall(vip.phone) },
+                                    primary = true,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .weight(1f, fill = false)
+                                        .height(72.dp),
+                                )
+                            }
+                            IconTextButton(
+                                icon = Icons.Filled.Mic,
+                                label = "Say “Call” + name",
+                                onClick = { startCallVipListening() },
+                                primary = false,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(68.dp),
+                            )
+                        }
 
-                        SectionLabel("Safety check")
-                        OutlinedTextField(
-                            value = testText,
-                            onValueChange = { testText = it },
-                            label = { Text("Message to check", fontSize = 20.sp) },
-                            textStyle = MaterialTheme.typography.bodyLarge,
+                        // Safety check
+                        IconTextButton(
+                            icon = Icons.Filled.Security,
+                            label = "Check a message",
+                            onClick = { showCheckDialog = true },
+                            primary = false,
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(160.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = BrandTeal,
-                                unfocusedBorderColor = BrandMuted,
-                                focusedLabelColor = BrandTeal,
-                                cursorColor = BrandTeal,
-                            ),
+                                .height(72.dp),
                         )
-                        BigActionButton("Check this message", onClick = { runTestClassify() })
+                    }
 
-                        Text(
-                            text = "Connected to care service",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = BrandMuted,
+                    if (showCheckDialog) {
+                        AlertDialog(
+                            onDismissRequest = { showCheckDialog = false },
+                            title = {
+                                Text("Check a message", fontSize = 26.sp, fontWeight = FontWeight.Bold)
+                            },
+                            text = {
+                                OutlinedTextField(
+                                    value = testText,
+                                    onValueChange = { testText = it },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(140.dp),
+                                    textStyle = MaterialTheme.typography.bodyLarge,
+                                )
+                            },
+                            confirmButton = {
+                                TextButton(
+                                    onClick = {
+                                        showCheckDialog = false
+                                        runTestClassify()
+                                    },
+                                ) {
+                                    Text("Check now", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                                }
+                            },
+                            dismissButton = {
+                                TextButton(onClick = { showCheckDialog = false }) {
+                                    Text("Cancel", fontSize = 20.sp)
+                                }
+                            },
                         )
-                        // Keep API URL tiny for debugging without cluttering senior UI
-                        Text(
-                            text = apiUrl,
-                            fontSize = 14.sp,
-                            color = BrandMuted.copy(alpha = 0.7f),
-                            textAlign = TextAlign.Center,
-                        )
-                        Spacer(Modifier.height(12.dp))
                     }
                 }
             }
         }
     }
 
-    private fun openNotificationAccess() {
-        startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-        status = "Find “AI For Seniors” and turn it ON"
-    }
-
-    private fun requestRuntimePermissions() {
-        permissionLauncher.launch(
-            arrayOf(
-                Manifest.permission.RECORD_AUDIO,
-                Manifest.permission.CALL_PHONE,
-                Manifest.permission.POST_NOTIFICATIONS,
-            ),
-        )
-    }
-
-    private fun refreshVips() {
-        status = "Loading family contacts…"
-        thread {
-            try {
-                val list = (application as ScamShieldApp).api.listVips()
-                cachedVips = list
-                runOnUiThread {
-                    vipsText = if (list.isEmpty()) {
-                        "No family contacts yet.\nAsk your caregiver to add them."
-                    } else {
-                        list.joinToString("\n\n") { "• ${it.name}\n  ${it.phone}" }
-                    }
-                    status = "Loaded ${list.size} family contact(s)"
-                }
-            } catch (e: Exception) {
-                runOnUiThread { status = "Could not load contacts.\n${e.message}" }
+    private fun requestRuntimePermissionsIfNeeded() {
+        val need = buildList {
+            if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                add(Manifest.permission.RECORD_AUDIO)
             }
+            if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.CALL_PHONE)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                add(Manifest.permission.CALL_PHONE)
+            }
+            if (ContextCompat.checkSelfPermission(this@MainActivity, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED
+            ) {
+                add(Manifest.permission.POST_NOTIFICATIONS)
+            }
+        }
+        if (need.isNotEmpty()) {
+            permissionLauncher.launch(need.toTypedArray())
         }
     }
 
     private fun runTestClassify() {
-        status = "Checking message…"
         thread {
             try {
                 val result = (application as ScamShieldApp).api.classifyScam(testText, "manual")
                 runOnUiThread {
-                    status = if (result.isScam) {
-                        "This message looks unsafe"
-                    } else {
-                        "This message looks okay"
-                    }
                     if (result.isScam) {
                         startActivity(
                             Intent(this, WarnActivity::class.java).apply {
@@ -218,11 +242,13 @@ class MainActivity : ComponentActivity() {
                             },
                         )
                     } else {
-                        Toast.makeText(this, "Not flagged as unsafe", Toast.LENGTH_LONG).show()
+                        Toast.makeText(this, "This message looks okay", Toast.LENGTH_LONG).show()
                     }
                 }
             } catch (e: Exception) {
-                runOnUiThread { status = "Check failed.\n${e.message}" }
+                runOnUiThread {
+                    Toast.makeText(this, "Could not check message", Toast.LENGTH_LONG).show()
+                }
             }
         }
     }
@@ -231,23 +257,18 @@ class MainActivity : ComponentActivity() {
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED
         ) {
-            requestRuntimePermissions()
-            return
-        }
-        if (cachedVips.isEmpty()) {
-            refreshVips()
-            status = "Load family contacts first, then try again"
+            requestRuntimePermissionsIfNeeded()
             return
         }
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            status = "Voice calling is not available on this phone"
+            Toast.makeText(this, "Voice calling not available", Toast.LENGTH_LONG).show()
             return
         }
         speech?.destroy()
         speech = SpeechRecognizer.createSpeechRecognizer(this).also { sr ->
             sr.setRecognitionListener(object : RecognitionListener {
                 override fun onReadyForSpeech(params: Bundle?) {
-                    status = "Listening… say Call, then a name"
+                    Toast.makeText(this@MainActivity, "Listening…", Toast.LENGTH_SHORT).show()
                 }
 
                 override fun onResults(results: Bundle?) {
@@ -255,12 +276,11 @@ class MainActivity : ComponentActivity() {
                         ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                         ?.firstOrNull()
                         .orEmpty()
-                    lastHeard = heard
                     handleVoiceCommand(heard)
                 }
 
                 override fun onError(error: Int) {
-                    status = "Didn’t catch that — tap and try again"
+                    Toast.makeText(this@MainActivity, "Please try again", Toast.LENGTH_SHORT).show()
                 }
 
                 override fun onBeginningOfSpeech() {}
@@ -283,28 +303,24 @@ class MainActivity : ComponentActivity() {
         val callMatch = Regex("""\bcall\s+(.+)$""").find(normalized)
         val namePart = callMatch?.groupValues?.getOrNull(1)?.trim().orEmpty()
         if (namePart.isEmpty()) {
-            status = "Please say “Call” then a name"
+            Toast.makeText(this, "Say Call then a name", Toast.LENGTH_LONG).show()
             return
         }
-        val vip = cachedVips.firstOrNull { vip ->
+        val vip = vips.firstOrNull { vip ->
             val n = vip.name.lowercase()
             namePart.contains(n) || n.contains(namePart) ||
                 namePart.split(Regex("\\s+")).any { token -> n.contains(token) && token.length > 2 }
         }
         if (vip == null) {
-            status = "No match for “$namePart”"
+            Toast.makeText(this, "No match for $namePart", Toast.LENGTH_LONG).show()
             return
         }
-        status = "Calling ${vip.name}…"
         placeCall(vip.phone)
     }
 
     private fun placeCall(phone: String) {
         val cleaned = phone.filter { it.isDigit() || it == '+' }
-        if (cleaned.isEmpty()) {
-            status = "That contact has no phone number"
-            return
-        }
+        if (cleaned.isEmpty()) return
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE)
             != PackageManager.PERMISSION_GRANTED
         ) {
@@ -321,53 +337,36 @@ class MainActivity : ComponentActivity() {
 }
 
 @androidx.compose.runtime.Composable
-private fun SectionLabel(text: String) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.titleLarge,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 8.dp),
-        fontWeight = FontWeight.Bold,
-    )
-}
-
-@androidx.compose.runtime.Composable
-private fun StatusCard(status: String, heard: String) {
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
-            .background(BrandCard)
-            .padding(22.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Text("Status", style = MaterialTheme.typography.titleLarge, color = BrandTeal)
-        Text(status, style = MaterialTheme.typography.bodyLarge)
-        if (heard.isNotBlank()) {
-            Text("You said: $heard", style = MaterialTheme.typography.bodyMedium)
-        }
-    }
-}
-
-@androidx.compose.runtime.Composable
-private fun BigActionButton(
+private fun IconTextButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
     onClick: () -> Unit,
-    primary: Boolean = true,
+    primary: Boolean,
+    modifier: Modifier = Modifier,
 ) {
     Button(
         onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(SeniorButtonHeight),
+        modifier = modifier,
         shape = RoundedCornerShape(18.dp),
         colors = if (primary) seniorPrimaryButtonColors() else seniorSecondaryButtonColors(),
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            textAlign = TextAlign.Center,
-        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                modifier = Modifier.size(32.dp),
+            )
+            Spacer(Modifier.width(14.dp))
+            Text(
+                text = label,
+                fontSize = 24.sp,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Start,
+            )
+        }
     }
 }
