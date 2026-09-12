@@ -135,7 +135,7 @@ class SettingsActivity : ComponentActivity() {
                         SettingsAction(
                             icon = Icons.Filled.Cloud,
                             label = "Test laptop server",
-                            detail = "Turn off phone VPN first — same Wi-Fi as laptop",
+                            detail = "USB connected? Uses phone localhost via adb reverse",
                             onClick = { testServer() },
                         )
                     }

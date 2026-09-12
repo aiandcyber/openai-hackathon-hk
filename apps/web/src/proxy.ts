@@ -3,6 +3,13 @@ import { NextResponse } from "next/server";
 import { getAuth0, isAuth0Configured } from "./lib/auth0";
 
 export async function proxy(request: NextRequest) {
+  // Auth0 cookies are host-bound. Keep one origin for local demo.
+  if (request.nextUrl.hostname === "127.0.0.1") {
+    const url = request.nextUrl.clone();
+    url.hostname = "localhost";
+    return NextResponse.redirect(url);
+  }
+
   // Without Auth0 env, pass through so local demo keeps working.
   if (!isAuth0Configured()) {
     return NextResponse.next();
@@ -17,6 +24,10 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)",
+    /*
+     * Auth0 session middleware for pages only.
+     * Device APIs (/api/*) must stay open for the Android phone.
+     */
+    "/((?!_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt|api/).*)",
   ],
 };

@@ -31,15 +31,13 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material.icons.filled.ChatBubble
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
@@ -60,19 +58,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
-import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
-import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 class MainActivity : ComponentActivity() {
     private var listening by mutableStateOf(false)
     private var activeCall by mutableStateOf<Vip?>(null)
-    private var todayChecks by mutableStateOf(0)
-    private var todayBlocked by mutableStateOf(0)
-    private var recentEvents by mutableStateOf<List<ProtectionEvent>>(emptyList())
     private var speech: SpeechRecognizer? = null
     private val vips: List<Vip> = DefaultVips.list
     private val listenHandler = Handler(Looper.getMainLooper())
@@ -90,7 +83,6 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         requestRuntimePermissionsIfNeeded()
-        refreshProtectionSummary()
 
         setContent {
             SeniorTheme {
@@ -100,9 +92,8 @@ class MainActivity : ComponentActivity() {
                             .fillMaxSize()
                             .statusBarsPadding()
                             .navigationBarsPadding()
-                            .padding(horizontal = 20.dp, vertical = 12.dp)
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                            .padding(horizontal = 18.dp, vertical = 10.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         HeaderRow(
                             onSettings = {
@@ -110,40 +101,31 @@ class MainActivity : ComponentActivity() {
                             },
                         )
 
-                        StatusCard()
+                        StatusCard(Modifier = Modifier.weight(1f))
 
-                        MessageGuardianCard(on = true)
+                        MessageGuardianCard(on = true, modifier = Modifier.weight(1f))
 
                         if (activeCall == null) {
-                            CallSomeoneCard(listening = listening)
+                            CallSomeoneCard(
+                                listening = listening,
+                                names = vips.joinToString(" · ") { it.name },
+                                modifier = Modifier.weight(1f),
+                            )
                         } else {
                             CallingCard(
                                 vip = activeCall!!,
                                 onEnd = { endCall() },
+                                modifier = Modifier.weight(1f),
                             )
                         }
-
-                        TodayForYouCard(
-                            checks = todayChecks,
-                            blocked = todayBlocked,
-                            events = recentEvents,
-                        )
                     }
                 }
             }
         }
     }
 
-    private fun refreshProtectionSummary() {
-        val (checks, blocked) = ProtectionLog.todayCounts(this)
-        todayChecks = checks
-        todayBlocked = blocked
-        recentEvents = ProtectionLog.recent(this, limit = 3)
-    }
-
     override fun onResume() {
         super.onResume()
-        refreshProtectionSummary()
         wantContinuousListen = activeCall == null
         if (wantContinuousListen) scheduleListen(delayMs = 400)
     }
@@ -371,24 +353,24 @@ private fun HeaderRow(onSettings: () -> Unit) {
 
     Row(
         Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.Top,
+        verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Column(Modifier.weight(1f)) {
             Text(
                 text = date,
-                fontSize = 13.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = BrandMuted,
                 letterSpacing = 0.6.sp,
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(2.dp))
             Text(
                 text = "$greeting, Mary",
-                fontSize = 36.sp,
+                fontSize = 40.sp,
                 fontWeight = FontWeight.Bold,
                 color = BrandInk,
-                lineHeight = 42.sp,
+                lineHeight = 46.sp,
             )
         }
         IconButton(onClick = onSettings) {
@@ -396,47 +378,29 @@ private fun HeaderRow(onSettings: () -> Unit) {
                 Icons.Filled.Settings,
                 contentDescription = "Settings",
                 tint = BrandMuted,
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(34.dp),
             )
         }
     }
 }
 
 @androidx.compose.runtime.Composable
-private fun StatusCard() {
-    HomeCard {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+private fun StatusCard(modifier: Modifier = Modifier) {
+    HomeCard(modifier = modifier) {
+        Row(
+            Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             CircleIcon(Icons.Filled.Shield, filled = false)
-            Spacer(Modifier.width(14.dp))
+            Spacer(Modifier.width(16.dp))
             Column {
-                Text("You're protected", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = BrandInk)
-                Text("AI For Seniors is watching with you.", fontSize = 18.sp, color = BrandMuted)
-            }
-        }
-    }
-}
-
-@androidx.compose.runtime.Composable
-private fun MessageGuardianCard(on: Boolean) {
-    HomeCard {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            SoftSquareIcon(Icons.Filled.ChatBubble)
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text("Message Guardian", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = BrandInk)
-                Text("Watching WhatsApp", fontSize = 18.sp, color = BrandMuted)
-            }
-            Box(
-                Modifier
-                    .clip(RoundedCornerShape(999.dp))
-                    .background(BrandMint)
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-            ) {
+                Text("You're protected", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = BrandInk)
+                Spacer(Modifier.height(4.dp))
                 Text(
-                    text = if (on) "On" else "Off",
-                    color = BrandGreen,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 16.sp,
+                    "AI For Seniors is watching with you.",
+                    fontSize = 22.sp,
+                    color = BrandMuted,
+                    lineHeight = 28.sp,
                 )
             }
         }
@@ -444,144 +408,92 @@ private fun MessageGuardianCard(on: Boolean) {
 }
 
 @androidx.compose.runtime.Composable
-private fun CallSomeoneCard(listening: Boolean) {
-    HomeCard {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                CircleIcon(Icons.Filled.Mic, filled = true)
-                Spacer(Modifier.width(14.dp))
-                Column(Modifier.weight(1f)) {
-                    Text(
-                        text = if (listening) "Listening…" else "Say a name to call",
-                        fontSize = 26.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = BrandInk,
-                    )
-                    Text(
-                        text = "Try “Call Martin” anytime",
-                        fontSize = 18.sp,
-                        color = BrandMuted,
-                    )
-                }
+private fun MessageGuardianCard(on: Boolean, modifier: Modifier = Modifier) {
+    HomeCard(modifier = modifier) {
+        Row(
+            Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SoftSquareIcon(Icons.Filled.ChatBubble)
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Message Guardian", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = BrandInk)
+                Spacer(Modifier.height(4.dp))
+                Text("Watching WhatsApp", fontSize = 22.sp, color = BrandMuted)
             }
-            NewsLine(tag = "HKMA", title = "Banks never ask for your OTP on WhatsApp.")
-            NewsLine(tag = "Today", title = "WhatsApp from Martin looked safe.")
-            NewsLine(tag = "Hong Kong", title = "Sunny, 31°. A good day for a short walk.")
+            Box(
+                Modifier
+                    .clip(RoundedCornerShape(999.dp))
+                    .background(BrandMint)
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+            ) {
+                Text(
+                    text = if (on) "On" else "Off",
+                    color = BrandGreen,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                )
+            }
         }
     }
 }
 
 @androidx.compose.runtime.Composable
-private fun NewsLine(tag: String, title: String) {
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(BrandGreenSoft)
-            .padding(horizontal = 14.dp, vertical = 12.dp),
-    ) {
-        Text(
-            text = tag,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = BrandGreen,
-        )
-        Spacer(Modifier.height(4.dp))
-        Text(
-            text = title,
-            fontSize = 18.sp,
-            color = BrandInk,
-            lineHeight = 24.sp,
-        )
-    }
-}
-
-@androidx.compose.runtime.Composable
-private fun TodayForYouCard(
-    checks: Int,
-    blocked: Int,
-    events: List<ProtectionEvent>,
+private fun CallSomeoneCard(
+    listening: Boolean,
+    names: String,
+    modifier: Modifier = Modifier,
 ) {
-    val timeFmt = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH)
-    HomeCard {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                SoftSquareIcon(Icons.Filled.History)
-                Spacer(Modifier.width(14.dp))
-                Column {
-                    Text("Today for you", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = BrandInk)
-                    Text(
-                        text = when {
-                            checks == 0 -> "No messages checked yet today"
-                            blocked == 0 -> "$checks message${if (checks == 1) "" else "s"} checked · all looked safe"
-                            else -> "$checks checked · $blocked warning${if (blocked == 1) "" else "s"}"
-                        },
-                        fontSize = 18.sp,
-                        color = BrandMuted,
-                    )
-                }
-            }
-
-            if (events.isEmpty()) {
-                TipLine("Never share one-time codes from WhatsApp or SMS.")
-                TipLine("If someone rushes you for money, pause and call family.")
-                TipLine("Say “Call Martin”, “Call Amir”, or “Call Tim” anytime.")
-            } else {
-                events.forEach { event ->
-                    val whenText = Instant.ofEpochMilli(event.atMs)
-                        .atZone(ZoneId.systemDefault())
-                        .toLocalTime()
-                        .format(timeFmt)
-                    val label = if (event.isScam) "Warning" else "Safe"
-                    val color = if (event.isScam) BrandWarn else BrandGreen
-                    Column(
-                        Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(BrandGreenSoft)
-                            .padding(horizontal = 14.dp, vertical = 12.dp),
-                    ) {
-                        Text(
-                            text = "$label · $whenText",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = color,
-                        )
-                        Spacer(Modifier.height(4.dp))
-                        Text(
-                            text = event.summary.removePrefix("Warning: ").removePrefix("Checked OK: "),
-                            fontSize = 17.sp,
-                            color = BrandInk,
-                            lineHeight = 22.sp,
-                        )
-                    }
-                }
+    HomeCard(modifier = modifier) {
+        Row(
+            Modifier.fillMaxSize(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            CircleIcon(Icons.Filled.Mic, filled = true)
+            Spacer(Modifier.width(16.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    text = if (listening) "Listening…" else "Call Someone",
+                    fontSize = 32.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = BrandInk,
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Say “Call” then a name",
+                    fontSize = 22.sp,
+                    color = BrandMuted,
+                    lineHeight = 28.sp,
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    text = "Family: $names",
+                    fontSize = 20.sp,
+                    color = BrandMuted,
+                    lineHeight = 26.sp,
+                )
             }
         }
     }
 }
 
 @androidx.compose.runtime.Composable
-private fun TipLine(text: String) {
-    Text(
-        text = "• $text",
-        fontSize = 18.sp,
-        color = BrandInk,
-        lineHeight = 24.sp,
-        modifier = Modifier.padding(start = 4.dp),
-    )
-}
-
-@androidx.compose.runtime.Composable
-private fun CallingCard(vip: Vip, onEnd: () -> Unit) {
+private fun CallingCard(
+    vip: Vip,
+    onEnd: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     HomeCard(
-        modifier = Modifier.border(2.dp, BrandGreen, RoundedCornerShape(22.dp)),
+        modifier = modifier.border(2.dp, BrandGreen, RoundedCornerShape(22.dp)),
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(
+            Modifier.fillMaxSize(),
+            verticalArrangement = Arrangement.Center,
+        ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box(
                     Modifier
-                        .size(56.dp)
+                        .size(72.dp)
                         .border(3.dp, BrandGreen, CircleShape)
                         .padding(4.dp)
                         .clip(CircleShape)
@@ -590,37 +502,38 @@ private fun CallingCard(vip: Vip, onEnd: () -> Unit) {
                 ) {
                     Text(
                         text = vip.name.first().uppercaseChar().toString(),
-                        fontSize = 24.sp,
+                        fontSize = 30.sp,
                         fontWeight = FontWeight.Bold,
                         color = BrandGreen,
                     )
                 }
-                Spacer(Modifier.width(14.dp))
+                Spacer(Modifier.width(16.dp))
                 Column {
                     Text(
                         text = "Calling ${vip.name}…",
-                        fontSize = 26.sp,
+                        fontSize = 32.sp,
                         fontWeight = FontWeight.Bold,
                         color = BrandInk,
                     )
                     Text(
                         text = vip.phone,
-                        fontSize = 18.sp,
+                        fontSize = 22.sp,
                         color = BrandMuted,
                     )
                 }
             }
+            Spacer(Modifier.height(20.dp))
             Button(
                 onClick = onEnd,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
+                    .height(64.dp),
                 shape = RoundedCornerShape(16.dp),
                 colors = seniorWarnButtonColors(),
             ) {
-                Icon(Icons.Filled.CallEnd, contentDescription = null, tint = Color.White)
+                Icon(Icons.Filled.CallEnd, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
                 Spacer(Modifier.width(10.dp))
-                Text("End call", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("End call", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color.White)
             }
         }
     }
@@ -634,9 +547,10 @@ private fun HomeCard(
     Box(
         modifier
             .fillMaxWidth()
+            .fillMaxHeight()
             .clip(RoundedCornerShape(22.dp))
             .background(BrandCard)
-            .padding(horizontal = 18.dp, vertical = 20.dp),
+            .padding(horizontal = 20.dp, vertical = 18.dp),
     ) {
         content()
     }
@@ -646,13 +560,13 @@ private fun HomeCard(
 private fun CircleIcon(icon: ImageVector, filled: Boolean) {
     Box(
         Modifier
-            .size(56.dp)
+            .size(72.dp)
             .clip(CircleShape)
             .then(
                 if (filled) {
                     Modifier.background(BrandGreen)
                 } else {
-                    Modifier.border(2.dp, BrandGreen, CircleShape)
+                    Modifier.border(3.dp, BrandGreen, CircleShape)
                 },
             ),
         contentAlignment = Alignment.Center,
@@ -661,7 +575,7 @@ private fun CircleIcon(icon: ImageVector, filled: Boolean) {
             imageVector = icon,
             contentDescription = null,
             tint = if (filled) Color.White else BrandGreen,
-            modifier = Modifier.size(28.dp),
+            modifier = Modifier.size(36.dp),
         )
     }
 }
@@ -670,11 +584,11 @@ private fun CircleIcon(icon: ImageVector, filled: Boolean) {
 private fun SoftSquareIcon(icon: ImageVector) {
     Box(
         Modifier
-            .size(56.dp)
-            .clip(RoundedCornerShape(14.dp))
+            .size(72.dp)
+            .clip(RoundedCornerShape(18.dp))
             .background(BrandMint),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = null, tint = BrandGreen, modifier = Modifier.size(28.dp))
+        Icon(icon, contentDescription = null, tint = BrandGreen, modifier = Modifier.size(36.dp))
     }
 }
