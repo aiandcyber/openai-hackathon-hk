@@ -16,8 +16,8 @@ async function llmClassify(text: string, source: string): Promise<Omit<ClassifyR
   const client = openRouterClient();
   if (!client) return null;
 
-  const primary = process.env.OPENROUTER_MODEL || "meta-llama/llama-3.3-70b-instruct";
-  const fallback = process.env.OPENROUTER_FALLBACK_MODEL || "deepseek/deepseek-chat";
+  const primary = process.env.OPENROUTER_MODEL || "openai/gpt-4o-mini";
+  const fallback = process.env.OPENROUTER_FALLBACK_MODEL || "openai/gpt-4.1-mini";
   const models = [primary, fallback];
 
   const system = `You are Scam Shield for Hong Kong seniors.

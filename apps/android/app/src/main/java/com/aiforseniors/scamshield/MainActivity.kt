@@ -5,10 +5,13 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.speech.RecognitionListener
 import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import android.telecom.TelecomManager
+import android.util.Log
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -16,7 +19,6 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -65,10 +67,16 @@ class MainActivity : ComponentActivity() {
     private var activeCall by mutableStateOf<Vip?>(null)
     private var speech: SpeechRecognizer? = null
     private val vips: List<Vip> = DefaultVips.list
+    private val listenHandler = Handler(Looper.getMainLooper())
+    private var wantContinuousListen = true
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
-    ) { /* silent */ }
+    ) { granted ->
+        if (granted[Manifest.permission.RECORD_AUDIO] == true) {
+            scheduleListen(delayMs = 300)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -100,7 +108,6 @@ class MainActivity : ComponentActivity() {
                             CallSomeoneCard(
                                 listening = listening,
                                 names = vips.joinToString(" · ") { it.name },
-                                onStart = { startCallVipListening() },
                             )
                         } else {
                             CallingCard(
@@ -114,6 +121,18 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        wantContinuousListen = activeCall == null
+        if (wantContinuousListen) scheduleListen(delayMs = 400)
+    }
+
+    override fun onPause() {
+        wantContinuousListen = false
+        stopListening()
+        super.onPause()
     }
 
     private fun requestRuntimePermissionsIfNeeded() {
@@ -137,7 +156,25 @@ class MainActivity : ComponentActivity() {
         if (need.isNotEmpty()) permissionLauncher.launch(need.toTypedArray())
     }
 
-    private fun startCallVipListening() {
+    private fun scheduleListen(delayMs: Long = 600) {
+        listenHandler.removeCallbacksAndMessages(null)
+        listenHandler.postDelayed({ startContinuousListening() }, delayMs)
+    }
+
+    private fun stopListening() {
+        listenHandler.removeCallbacksAndMessages(null)
+        try {
+            speech?.cancel()
+            speech?.destroy()
+        } catch (_: Exception) {
+        }
+        speech = null
+        listening = false
+    }
+
+    /** Always-on mic loop: keeps restarting until a “Call &lt;name&gt;” match. */
+    private fun startContinuousListening() {
+        if (!wantContinuousListen || activeCall != null) return
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
             != PackageManager.PERMISSION_GRANTED
         ) {
@@ -145,27 +182,43 @@ class MainActivity : ComponentActivity() {
             return
         }
         if (!SpeechRecognizer.isRecognitionAvailable(this)) {
-            Toast.makeText(this, "Voice calling not available", Toast.LENGTH_LONG).show()
+            listening = false
             return
         }
-        speech?.destroy()
+
+        try {
+            speech?.cancel()
+            speech?.destroy()
+        } catch (_: Exception) {
+        }
+
         listening = true
         speech = SpeechRecognizer.createSpeechRecognizer(this).also { sr ->
             sr.setRecognitionListener(object : RecognitionListener {
-                override fun onReadyForSpeech(params: Bundle?) {}
+                override fun onReadyForSpeech(params: Bundle?) {
+                    listening = true
+                }
 
                 override fun onResults(results: Bundle?) {
-                    listening = false
                     val heard = results
                         ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
                         ?.firstOrNull()
                         .orEmpty()
-                    handleVoiceCommand(heard)
+                    Log.d(TAG, "heard: $heard")
+                    val matched = handleVoiceCommand(heard)
+                    if (!matched && wantContinuousListen && activeCall == null) {
+                        scheduleListen(delayMs = 400)
+                    }
                 }
 
                 override fun onError(error: Int) {
-                    listening = false
-                    Toast.makeText(this@MainActivity, "Please try again", Toast.LENGTH_SHORT).show()
+                    // Timeouts / no-match are normal in always-listen mode — just restart.
+                    Log.d(TAG, "speech error $error")
+                    if (wantContinuousListen && activeCall == null) {
+                        scheduleListen(delayMs = 500)
+                    } else {
+                        listening = false
+                    }
                 }
 
                 override fun onBeginningOfSpeech() {}
@@ -177,41 +230,44 @@ class MainActivity : ComponentActivity() {
             })
             val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
                 putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
-                putExtra(RecognizerIntent.EXTRA_PROMPT, "Say Call then a name")
+                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 5)
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
             }
-            sr.startListening(intent)
+            try {
+                sr.startListening(intent)
+            } catch (e: Exception) {
+                Log.w(TAG, "startListening failed", e)
+                scheduleListen(delayMs = 1000)
+            }
         }
     }
 
-    private fun handleVoiceCommand(heard: String) {
+    /** @return true if a call was started */
+    private fun handleVoiceCommand(heard: String): Boolean {
         val normalized = heard.lowercase().trim()
-        val namePart = Regex("""\b(?:call|phone|dial)\s+(.+)$""")
-            .find(normalized)
-            ?.groupValues
-            ?.getOrNull(1)
-            ?.trim()
-            ?: normalized
+        // Must include "call" (or phone/dial) — ignore other chatter while always listening.
+        val callMatch = Regex("""\b(?:call|phone|dial)\s+(.+)$""").find(normalized) ?: return false
+        val namePart = callMatch.groupValues.getOrNull(1)?.trim().orEmpty()
+        if (namePart.isBlank()) return false
 
-        if (namePart.isBlank()) {
-            Toast.makeText(this, "Say Call then a name", Toast.LENGTH_LONG).show()
-            return
-        }
         val vip = vips.firstOrNull { vip ->
             val n = vip.name.lowercase()
             namePart.contains(n) || n.contains(namePart) ||
                 namePart.split(Regex("\\s+")).any { token -> n.contains(token) && token.length > 2 }
         }
         if (vip == null) {
-            Toast.makeText(this, "No match for $namePart", Toast.LENGTH_LONG).show()
-            return
+            Toast.makeText(this, "No match for $namePart", Toast.LENGTH_SHORT).show()
+            return false
         }
         placeCall(vip)
+        return true
     }
 
     private fun placeCall(vip: Vip) {
         val cleaned = vip.phone.filter { it.isDigit() || it == '+' }
         if (cleaned.isEmpty()) return
+        wantContinuousListen = false
+        stopListening()
         activeCall = vip
         val uri = Uri.parse("tel:$cleaned")
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE)
@@ -236,12 +292,18 @@ class MainActivity : ComponentActivity() {
             // UI still resets
         }
         activeCall = null
-        listening = false
+        wantContinuousListen = true
+        scheduleListen(delayMs = 500)
     }
 
     override fun onDestroy() {
-        speech?.destroy()
+        wantContinuousListen = false
+        stopListening()
         super.onDestroy()
+    }
+
+    companion object {
+        private const val TAG = "CallListen"
     }
 }
 
@@ -335,11 +397,8 @@ private fun MessageGuardianCard(on: Boolean) {
 private fun CallSomeoneCard(
     listening: Boolean,
     names: String,
-    onStart: () -> Unit,
 ) {
-    HomeCard(
-        modifier = Modifier.clickable(enabled = !listening, onClick = onStart),
-    ) {
+    HomeCard {
         Row(verticalAlignment = Alignment.CenterVertically) {
             CircleIcon(Icons.Filled.Mic, filled = true)
             Spacer(Modifier.width(14.dp))
@@ -351,11 +410,7 @@ private fun CallSomeoneCard(
                     color = BrandInk,
                 )
                 Text(
-                    text = if (listening) {
-                        "Say Call then a name"
-                    } else {
-                        "Say a name and I'll dial for you"
-                    },
+                    text = "Always on — say “Call” then a name",
                     fontSize = 18.sp,
                     color = BrandMuted,
                 )
