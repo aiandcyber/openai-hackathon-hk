@@ -8,14 +8,15 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -35,12 +36,14 @@ class WarnActivity : ComponentActivity(), TextToSpeech.OnInitListener {
         tts = TextToSpeech(this, this)
 
         setContent {
-            WarnScreen(
-                warning = warning,
-                reason = reason,
-                source = source,
-                onDismiss = { finish() },
-            )
+            SeniorTheme {
+                WarnScreen(
+                    warning = warning,
+                    reason = reason,
+                    source = source,
+                    onDismiss = { finish() },
+                )
+            }
         }
     }
 
@@ -74,35 +77,66 @@ private fun WarnScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFB91C1C))
-            .padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
+            .background(BrandWarn)
+            .padding(28.dp),
+        verticalArrangement = Arrangement.spacedBy(22.dp, Alignment.CenterVertically),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = "SCAM ALERT",
-            color = Color.White,
-            fontSize = 36.sp,
-            fontWeight = FontWeight.Bold,
+            text = "AI For Seniors",
+            color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.9f),
+            fontSize = 28.sp,
+            fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
         )
         Text(
-            text = warning.ifBlank { "Do not tap links or share codes. Call your family." },
-            color = Color.White,
-            fontSize = 24.sp,
+            text = "Please be careful",
+            color = androidx.compose.ui.graphics.Color.White,
+            fontSize = 48.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+            lineHeight = 54.sp,
+        )
+        Text(
+            text = warning.ifBlank {
+                "Do not tap links or share codes. Call your family."
+            },
+            color = androidx.compose.ui.graphics.Color.White,
+            fontSize = 30.sp,
+            lineHeight = 38.sp,
             textAlign = TextAlign.Center,
         )
         if (reason.isNotBlank()) {
-            Text(text = reason, color = Color(0xFFFFE4E6), fontSize = 16.sp, textAlign = TextAlign.Center)
+            Text(
+                text = reason,
+                color = androidx.compose.ui.graphics.Color(0xFFFFE4E6),
+                fontSize = 24.sp,
+                lineHeight = 32.sp,
+                textAlign = TextAlign.Center,
+            )
         }
         if (source.isNotBlank()) {
-            Text(text = source, color = Color(0xFFFFE4E6), fontSize = 14.sp, textAlign = TextAlign.Center)
+            Text(
+                text = source,
+                color = androidx.compose.ui.graphics.Color(0xFFFFE4E6),
+                fontSize = 22.sp,
+                lineHeight = 30.sp,
+                textAlign = TextAlign.Center,
+            )
         }
         Button(
             onClick = onDismiss,
-            colors = ButtonDefaults.buttonColors(containerColor = Color.White, contentColor = Color(0xFFB91C1C)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(84.dp),
+            shape = RoundedCornerShape(20.dp),
+            colors = seniorWarnButtonColors(),
         ) {
-            Text("I understand", fontSize = 18.sp)
+            Text(
+                text = "I understand",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+            )
         }
     }
 }

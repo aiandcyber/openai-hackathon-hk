@@ -1,6 +1,6 @@
 # Android — Scam Shield (Person A / Windows Android Studio)
 
-Package: `com.aiforseniors.scamshield` · Min SDK 26
+App name: **AI For Seniors** · Package: `com.aiforseniors.scamshield` · Min SDK 26
 
 ## Open in Android Studio (Windows)
 

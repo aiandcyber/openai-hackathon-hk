@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="shield_bg">#FFF7ED</color>
-    <color name="shield_warn">#B91C1C</color>
-    <color name="shield_ink">#1C1917</color>
-    <color name="shield_accent">#C2410C</color>
+    <color name="brand_navy">#0F2C4C</color>
+    <color name="brand_teal">#0E7490</color>
+    <color name="brand_bg">#F4F7FB</color>
+    <color name="brand_card">#FFFFFF</color>
+    <color name="brand_ink">#0B1220</color>
+    <color name="brand_muted">#475569</color>
+    <color name="brand_warn">#9F1239</color>
+    <color name="brand_ok">#166534</color>
 </resources>
