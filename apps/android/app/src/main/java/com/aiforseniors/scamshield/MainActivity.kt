@@ -37,6 +37,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material.icons.filled.ChatBubble
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
@@ -117,7 +118,10 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        Spacer(Modifier.weight(1f))
+                        HowToUseCard(
+                            modifier = Modifier.weight(1f),
+                            names = vips.joinToString(", ") { it.name },
+                        )
                     }
                 }
             }
@@ -359,7 +363,7 @@ private fun HeaderRow(onSettings: () -> Unit) {
         Column(Modifier.weight(1f)) {
             Text(
                 text = date,
-                fontSize = 13.sp,
+                fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
                 color = BrandMuted,
                 letterSpacing = 0.6.sp,
@@ -367,10 +371,10 @@ private fun HeaderRow(onSettings: () -> Unit) {
             Spacer(Modifier.height(4.dp))
             Text(
                 text = "$greeting, Mary",
-                fontSize = 36.sp,
+                fontSize = 40.sp,
                 fontWeight = FontWeight.Bold,
                 color = BrandInk,
-                lineHeight = 42.sp,
+                lineHeight = 46.sp,
             )
         }
         IconButton(onClick = onSettings) {
@@ -378,7 +382,7 @@ private fun HeaderRow(onSettings: () -> Unit) {
                 Icons.Filled.Settings,
                 contentDescription = "Settings",
                 tint = BrandMuted,
-                modifier = Modifier.size(28.dp),
+                modifier = Modifier.size(34.dp),
             )
         }
     }
@@ -391,8 +395,8 @@ private fun StatusCard() {
             CircleIcon(Icons.Filled.Shield, filled = false)
             Spacer(Modifier.width(14.dp))
             Column {
-                Text("You're protected", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = BrandInk)
-                Text("AI For Seniors is watching with you.", fontSize = 18.sp, color = BrandMuted)
+                Text("You're protected", fontSize = 30.sp, fontWeight = FontWeight.Bold, color = BrandInk)
+                Text("AI For Seniors is watching with you.", fontSize = 22.sp, color = BrandMuted, lineHeight = 28.sp)
             }
         }
     }
@@ -412,7 +416,7 @@ private fun MessageGuardianCard(on: Boolean) {
                     Text(
                         text = "Message Guardian",
                         modifier = Modifier.weight(1f),
-                        fontSize = 22.sp,
+                        fontSize = 26.sp,
                         fontWeight = FontWeight.Bold,
                         color = BrandInk,
                         maxLines = 1,
@@ -424,18 +428,18 @@ private fun MessageGuardianCard(on: Boolean) {
                         Modifier
                             .clip(RoundedCornerShape(999.dp))
                             .background(BrandMint)
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
+                            .padding(horizontal = 14.dp, vertical = 8.dp),
                     ) {
                         Text(
                             text = if (on) "On" else "Off",
                             color = BrandGreen,
                             fontWeight = FontWeight.SemiBold,
-                            fontSize = 16.sp,
+                            fontSize = 18.sp,
                             maxLines = 1,
                         )
                     }
                 }
-                Text("Watching WhatsApp", fontSize = 18.sp, color = BrandMuted, maxLines = 1)
+                Text("Watching WhatsApp", fontSize = 22.sp, color = BrandMuted, maxLines = 1)
             }
         }
     }
@@ -453,19 +457,20 @@ private fun CallSomeoneCard(
             Column(Modifier.weight(1f)) {
                 Text(
                     text = if (listening) "Listening…" else "Call Someone",
-                    fontSize = 26.sp,
+                    fontSize = 30.sp,
                     fontWeight = FontWeight.Bold,
                     color = BrandInk,
                 )
                 Text(
                     text = "Always on — say “Call” then a name",
-                    fontSize = 18.sp,
+                    fontSize = 22.sp,
                     color = BrandMuted,
+                    lineHeight = 28.sp,
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
                     text = "Family: $names",
-                    fontSize = 16.sp,
+                    fontSize = 20.sp,
                     color = BrandMuted,
                 )
             }
@@ -500,13 +505,13 @@ private fun CallingCard(vip: Vip, onEnd: () -> Unit) {
                 Column {
                     Text(
                         text = "Calling ${vip.name}…",
-                        fontSize = 26.sp,
+                        fontSize = 30.sp,
                         fontWeight = FontWeight.Bold,
                         color = BrandInk,
                     )
                     Text(
                         text = vip.phone,
-                        fontSize = 18.sp,
+                        fontSize = 22.sp,
                         color = BrandMuted,
                     )
                 }
@@ -521,8 +526,44 @@ private fun CallingCard(vip: Vip, onEnd: () -> Unit) {
             ) {
                 Icon(Icons.Filled.CallEnd, contentDescription = null, tint = Color.White)
                 Spacer(Modifier.width(10.dp))
-                Text("End call", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                Text("End call", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = Color.White)
             }
+        }
+    }
+}
+
+@androidx.compose.runtime.Composable
+private fun HowToUseCard(modifier: Modifier = Modifier, names: String) {
+    HomeCard(modifier = modifier.fillMaxWidth()) {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                CircleIcon(Icons.Filled.Info, filled = false)
+                Spacer(Modifier.width(14.dp))
+                Text(
+                    text = "How to use",
+                    fontSize = 30.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = BrandInk,
+                )
+            }
+            Text(
+                text = "If a WhatsApp message looks unsafe, a warning will open on this phone.",
+                fontSize = 22.sp,
+                color = BrandInk,
+                lineHeight = 30.sp,
+            )
+            Text(
+                text = "To call family, say Call then a name.\nTry: Call Martin",
+                fontSize = 22.sp,
+                color = BrandInk,
+                lineHeight = 30.sp,
+            )
+            Text(
+                text = "Family: $names",
+                fontSize = 20.sp,
+                color = BrandMuted,
+                lineHeight = 26.sp,
+            )
         }
     }
 }
